@@ -1,0 +1,195 @@
+<div class="container">
+  <h1>Rails OpenTelemetry Demo</h1>
+  <p class="subtitle">Click the buttons below to trigger different telemetry events</p>
+
+  <div class="button-grid">
+    <div class="card">
+      <h2>Log Event</h2>
+      <p>Creates an info-level log entry that gets exported via OpenTelemetry</p>
+      <button class="btn btn-log" data-action="log">
+        Create Log
+      </button>
+      <div class="result" id="log-result"></div>
+    </div>
+
+    <div class="card">
+      <h2>Trace Event</h2>
+      <p>Triggers a slow operation with a custom span and attributes</p>
+      <button class="btn btn-trace" data-action="trace">
+        Create Trace
+      </button>
+      <div class="result" id="trace-result"></div>
+    </div>
+
+    <div class="card">
+      <h2>Error Event</h2>
+      <p>Raises an exception that gets recorded on the span</p>
+      <button class="btn btn-error" data-action="error">
+        Trigger Error
+      </button>
+      <div class="result" id="error-result"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  }
+
+  h1 {
+    color: #1a1a2e;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    color: #666;
+    margin-bottom: 40px;
+    font-size: 1.1rem;
+  }
+
+  .button-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e8e8e8;
+  }
+
+  .card h2 {
+    margin: 0 0 12px 0;
+    font-size: 1.25rem;
+    color: #1a1a2e;
+  }
+
+  .card p {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn:active {
+    transform: translateY(0);
+  }
+
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-log {
+    background: linear-gradient(135deg, #405DE6, #5851DB);
+    color: white;
+  }
+
+  .btn-trace {
+    background: linear-gradient(135deg, #00B894, #00CEC9);
+    color: white;
+  }
+
+  .btn-error {
+    background: linear-gradient(135deg, #E74C3C, #C0392B);
+    color: white;
+  }
+
+  .result {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: 'Monaco', 'Menlo', monospace;
+    display: none;
+    word-break: break-word;
+  }
+
+  .result.success {
+    display: block;
+    background: #E8F5E9;
+    color: #2E7D32;
+    border: 1px solid #A5D6A7;
+  }
+
+  .result.error {
+    display: block;
+    background: #FFEBEE;
+    color: #C62828;
+    border: 1px solid #EF9A9A;
+  }
+
+  .result.loading {
+    display: block;
+    background: #FFF3E0;
+    color: #E65100;
+    border: 1px solid #FFCC80;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const endpoints = {
+      log: '/log',
+      trace: '/slow',
+      error: '/error'
+    };
+
+    document.querySelectorAll('.btn[data-action]').forEach(button => {
+      button.addEventListener('click', async function() {
+        const action = this.dataset.action;
+        const resultDiv = document.getElementById(`${action}-result`);
+        
+        // Disable button and show loading
+        this.disabled = true;
+        resultDiv.className = 'result loading';
+        resultDiv.textContent = 'Processing...';
+
+        try {
+          const response = await fetch(endpoints[action], {
+            headers: { 'Accept': 'application/json' }
+          });
+          const data = await response.json();
+          
+          if (response.ok) {
+            resultDiv.className = 'result success';
+            resultDiv.textContent = JSON.stringify(data, null, 2);
+          } else {
+            resultDiv.className = 'result error';
+            resultDiv.textContent = `Error: ${data.error || 'Unknown error'}`;
+          }
+        } catch (err) {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = `Request failed: ${err.message}`;
+        } finally {
+          this.disabled = false;
+        }
+      });
+    });
+  });
+</script>
