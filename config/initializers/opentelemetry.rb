@@ -4,8 +4,8 @@ require 'opentelemetry/instrumentation/all'
 require 'opentelemetry-logs-sdk'
 require 'opentelemetry/exporter/otlp_logs'
 
-OTEL_ENDPOINT = ENV.fetch('OTEL_EXPORTER_OTLP_ENDPOINT')
-PROJECT_ID = ENV.fetch('LAUNCHDARKLY_PROJECT_ID')
+OTEL_ENDPOINT = ENV.fetch('OTEL_EXPORTER_OTLP_ENDPOINT', 'https://otel.observability.app.launchdarkly.com:4318')
+PROJECT_ID = ENV.fetch('LAUNCHDARKLY_PROJECT_ID', 'your-launchdarkly-project-id')
 OTEL_SERVICE_NAME = ENV.fetch('OTEL_SERVICE_NAME', 'rails-opentelemetry-demo')
 OTEL_SERVICE_VERSION = ENV.fetch('OTEL_SERVICE_VERSION', '1.0.0')
 
@@ -20,7 +20,7 @@ OTEL_RESOURCE = OpenTelemetry::SDK::Resources::Resource.create(
   'launchdarkly.project_id' => PROJECT_ID
 )
 
-# ----- Configure Traces + Logger Bridge -----
+# ----- Traces + Logger Bridge -----
 OpenTelemetry::SDK.configure do |c|
   c.service_name = OTEL_SERVICE_NAME
   c.service_version = OTEL_SERVICE_VERSION
@@ -39,7 +39,7 @@ OpenTelemetry::SDK.configure do |c|
   c.use_all
 end
 
-# ----- Configure Logs Pipeline (experimental) -----
+# ----- Logs -----
 logger_provider = OpenTelemetry::SDK::Logs::LoggerProvider.new(resource: OTEL_RESOURCE)
 
 logs_processor = OpenTelemetry::SDK::Logs::Export::BatchLogRecordProcessor.new(

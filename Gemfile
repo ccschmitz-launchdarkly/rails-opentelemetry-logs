@@ -27,20 +27,17 @@ group :development do
   # gem "spring"
 end
 
-# OpenTelemetry - Traces (stable)
+# OpenTelemetry - Traces
 gem "opentelemetry-sdk"
 gem "opentelemetry-exporter-otlp"
 gem "opentelemetry-instrumentation-all"
 
-# OpenTelemetry - Logs (experimental)
+# OpenTelemetry - Logs
 gem "opentelemetry-logs-sdk"
 gem "opentelemetry-exporter-otlp-logs"
 
-# Bridge Ruby Logger (used by Rails) -> OTel Logs
+# Bridge Ruby Logger -> OTel Logs
 gem "opentelemetry-instrumentation-logger"
 
-# Environment variables
-gem "dotenv-rails", groups: [:development, :test]
-
-# SSL verification
+# Required for SSL verification, if not already installed
 gem "openssl"

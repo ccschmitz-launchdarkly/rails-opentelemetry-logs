@@ -9,8 +9,8 @@ class DemoController < ApplicationController
     Rails.logger.info "User triggered log event type=manual"
     Rails.logger.debug "Debug details: request_id=#{request.request_id}"
 
-    render json: { 
-      message: "Log entries created successfully", 
+    render json: {
+      message: "Log entries created successfully",
       timestamp: Time.current,
       log_levels: ["info", "debug"]
     }

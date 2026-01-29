@@ -122,7 +122,7 @@ tracer.in_span('risky_operation') do |span|
     # Record the exception on the span
     span.record_exception(e)
     span.status = OpenTelemetry::Trace::Status.error(e.message)
-    
+
     Rails.logger.error "Operation failed: #{e.message}"
     raise
   end
