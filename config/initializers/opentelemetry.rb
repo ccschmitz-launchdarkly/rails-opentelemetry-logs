@@ -17,7 +17,7 @@ end
 OTEL_RESOURCE = OpenTelemetry::SDK::Resources::Resource.create(
   'service.name' => OTEL_SERVICE_NAME,
   'service.version' => OTEL_SERVICE_VERSION,
-  'highlight.project_id' => PROJECT_ID
+  'launchdarkly.project_id' => PROJECT_ID
 )
 
 # ----- Configure Traces + Logger Bridge -----
