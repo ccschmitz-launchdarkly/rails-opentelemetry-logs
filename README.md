@@ -19,12 +19,21 @@ git clone <this-repo>
 cd rails-opentelemetry
 bundle install
 
-# Configure your endpoint (optional - defaults to LaunchDarkly staging)
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://your-otel-collector:4318
-export LAUNCHDARKLY_PROJECT_ID=your-project-id
+# Configure environment variables (required)
+cp .env.example .env
+# Edit .env with your project ID
 
 # Start the server
 rails server
+```
+
+The `.env` file must contain:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.observability.app.launchdarkly.com:4318
+LAUNCHDARKLY_PROJECT_ID=your-project-id
+OTEL_SERVICE_NAME=rails-opentelemetry-demo  # optional
+OTEL_SERVICE_VERSION=1.0.0                   # optional
 ```
 
 Visit http://localhost:3000 to see the demo UI with buttons to trigger different telemetry events.
@@ -53,63 +62,19 @@ gem "opentelemetry-instrumentation-logger"
 
 Then run `bundle install`.
 
+> **Note**: This example uses `dotenv-rails` to load environment variables from `.env` in development/test environments.
+
 ### Step 2: Create the Initializer
 
-Create `config/initializers/opentelemetry.rb`:
+Create `config/initializers/opentelemetry.rb`. See the full implementation in [`config/initializers/opentelemetry.rb`](config/initializers/opentelemetry.rb).
 
-```ruby
-require 'opentelemetry/sdk'
-require 'opentelemetry/exporter/otlp'
-require 'opentelemetry/instrumentation/all'
-require 'opentelemetry-logs-sdk'
-require 'opentelemetry/exporter/otlp_logs'
-
-# Configuration
-OTEL_ENDPOINT = ENV.fetch('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4318')
-PROJECT_ID = ENV.fetch('LAUNCHDARKLY_PROJECT_ID', 'your-project-id')
-
-# Shared resource - customize these attributes for your service
-OTEL_RESOURCE = OpenTelemetry::SDK::Resources::Resource.create(
-  'service.name' => 'your-service-name',
-  'service.version' => '1.0.0',
-  'highlight.project_id' => PROJECT_ID  # Routes telemetry to your project
-)
-
-# ----- Configure Traces -----
-OpenTelemetry::SDK.configure do |c|
-  c.service_name = 'your-service-name'
-  c.service_version = '1.0.0'
-  c.resource = OTEL_RESOURCE
-
-  c.add_span_processor(
-    OpenTelemetry::SDK::Trace::Export::BatchSpanProcessor.new(
-      OpenTelemetry::Exporter::OTLP::Exporter.new(
-        endpoint: "#{OTEL_ENDPOINT}/v1/traces"
-      )
-    )
-  )
-
-  # Enable all auto-instrumentation (Rails, ActiveRecord, Net::HTTP, Logger, etc.)
-  c.use_all
-end
-
-# ----- Configure Logs Pipeline (experimental) -----
-logger_provider = OpenTelemetry::SDK::Logs::LoggerProvider.new(resource: OTEL_RESOURCE)
-
-logs_processor = OpenTelemetry::SDK::Logs::Export::BatchLogRecordProcessor.new(
-  OpenTelemetry::Exporter::OTLP::Logs::LogsExporter.new(
-    endpoint: "#{OTEL_ENDPOINT}/v1/logs"
-  )
-)
-
-logger_provider.add_log_record_processor(logs_processor)
-
-# Set global logger provider so the Logger bridge can export
-OpenTelemetry.logger_provider = logger_provider if OpenTelemetry.respond_to?(:logger_provider=)
-
-# Ensure logs are flushed on shutdown
-at_exit { logger_provider.shutdown }
-```
+The initializer:
+1. Loads required environment variables (`OTEL_EXPORTER_OTLP_ENDPOINT`, `LAUNCHDARKLY_PROJECT_ID`)
+2. Creates a shared resource with service name, version, and project ID
+3. Configures the trace pipeline with a batch span processor and OTLP exporter
+4. Enables auto-instrumentation for Rails, ActiveRecord, Net::HTTP, Logger, etc.
+5. Configures the logs pipeline (experimental) with a batch log record processor
+6. Sets up graceful shutdown to flush logs on exit
 
 ### Step 3: Use It
 
@@ -173,10 +138,9 @@ This example app includes demo endpoints for testing:
 | Endpoint | Description |
 |----------|-------------|
 | `GET /` | Demo UI with buttons to trigger events |
-| `GET /log` | Creates log entries at multiple levels |
+| `GET /log` | Creates log entries at info and debug levels |
 | `GET /slow` | Simulates a slow operation (0.5-2s) with custom span |
 | `GET /error` | Demonstrates error recording in traces |
-| `GET /health` | Health check endpoint |
 
 ### Testing with curl
 
@@ -192,19 +156,21 @@ curl http://localhost:3000/error
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `https://otel.observability.ld-stg.launchdarkly.com:4318` | OTLP collector endpoint (HTTP) |
-| `LAUNCHDARKLY_PROJECT_ID` | `61b799a14714e00e3ef9c2fa` | Project ID for routing telemetry |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Yes | - | OTLP collector endpoint (HTTP), e.g. `https://otel.observability.app.launchdarkly.com:4318` |
+| `LAUNCHDARKLY_PROJECT_ID` | Yes | - | Project ID for routing telemetry |
+| `OTEL_SERVICE_NAME` | No | `rails-opentelemetry-demo` | Logical name of your service |
+| `OTEL_SERVICE_VERSION` | No | `1.0.0` | Version of your service |
 
 ### Resource Attributes
 
-The `highlight.project_id` resource attribute routes telemetry to the correct project in the LaunchDarkly observability backend. Update this to your project ID.
+The `highlight.project_id` resource attribute routes telemetry to the correct project in the LaunchDarkly observability backend. This is set automatically from the `LAUNCHDARKLY_PROJECT_ID` environment variable.
 
-Standard semantic conventions for resource attributes:
-- `service.name` - Logical name of your service
-- `service.version` - Version of your service
-- `deployment.environment` - Environment (production, staging, etc.)
+Standard semantic conventions for resource attributes (set via environment variables):
+- `service.name` - Logical name of your service (`OTEL_SERVICE_NAME`)
+- `service.version` - Version of your service (`OTEL_SERVICE_VERSION`)
+- `deployment.environment` - Environment (production, staging, etc.) - add to initializer if needed
 
 ---
 
@@ -231,10 +197,10 @@ Standard semantic conventions for resource attributes:
               └────────┬───────┘    └────────┬───────┘
                        │                      │
                        ▼                      ▼
-              ┌──────────────────────────────────────┐
-              │         OTLP Collector               │
-              │  (e.g., otel.observability.ld.com)   │
-              └──────────────────────────────────────┘
+              ┌───────────────────────────────────────────────────┐
+              │                OTLP Collector                      │
+              │  (e.g., otel.observability.app.launchdarkly.com)   │
+              └───────────────────────────────────────────────────┘
 ```
 
 ---
@@ -254,6 +220,12 @@ Standard semantic conventions for resource attributes:
 - **Auto-instrumentation**: `use_all` enables instrumentation for Rails, ActiveRecord, Net::HTTP, Faraday, Redis, Sidekiq, and more
 
 ## Troubleshooting
+
+### App won't start?
+
+1. Ensure `OTEL_EXPORTER_OTLP_ENDPOINT` and `LAUNCHDARKLY_PROJECT_ID` are set (both are required)
+2. Copy `.env.example` to `.env` and fill in your values
+3. Check that `LAUNCHDARKLY_PROJECT_ID` is not blank
 
 ### Traces/logs not appearing?
 
